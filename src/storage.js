@@ -1,54 +1,28 @@
 // Слой хранения на Firestore (коллекция "plants").
-// Компоненты знают только про loadPlants / savePlant / deletePlant.
-import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+// Описания растений лежат в plants.js; сюда пишутся только события ухода,
+// добавленные в приложении. Документ растения: plants/{id} = { care: [{ type, date }] }.
+// Старые документы с другими id игнорируются.
+import { arrayRemove, arrayUnion, collection, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db } from './firebase.js'
-import { PLANT_POOL } from './plantPool.js'
 
 const plantsCol = collection(db, 'plants')
 
-function pickRandom(list, n) {
-  const copy = [...list]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy.slice(0, n)
-}
-
-function seed() {
-  return pickRandom(PLANT_POOL, 3).map((p, i) => ({
-    id: crypto.randomUUID(),
-    dateAdded: new Date().toISOString(),
-    order: i,
-    ...p,
-  }))
-}
-
-// Один общий промис: StrictMode (и любые повторные вызовы) не засеют базу дважды.
-let loading = null
-
-export function loadPlants() {
-  loading ??= (async () => {
-    const snap = await getDocs(plantsCol)
-    if (snap.empty) {
-      const plants = seed()
-      const batch = writeBatch(db)
-      plants.forEach((p) => batch.set(doc(plantsCol, p.id), p))
-      await batch.commit()
-      return plants
-    }
-    return snap.docs.map((d) => d.data()).sort((a, b) => a.order - b.order)
-  })().catch((e) => {
-    loading = null
-    throw e
+// { [plantId]: [{ type, date }] }
+export async function loadCare() {
+  const snap = await getDocs(plantsCol)
+  const byId = {}
+  snap.forEach((d) => {
+    const care = d.data().care
+    if (Array.isArray(care)) byId[d.id] = care
   })
-  return loading
+  return byId
 }
 
-export function savePlant(plant) {
-  return setDoc(doc(plantsCol, plant.id), plant)
+export function addCare(plantId, event) {
+  return setDoc(doc(plantsCol, plantId), { care: arrayUnion(event) }, { merge: true })
 }
 
-export function deletePlant(id) {
-  return deleteDoc(doc(plantsCol, id))
+// Отмена только что записанного события (на случай случайного тапа).
+export function removeCare(plantId, event) {
+  return setDoc(doc(plantsCol, plantId), { care: arrayRemove(event) }, { merge: true })
 }
