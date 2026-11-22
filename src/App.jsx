@@ -4,7 +4,10 @@ import PlantArt from './PlantArt.jsx'
 import { auth } from './firebase.js'
 import { loadPlants } from './storage.js'
 
-function Greenhouse({ user }) {
+// Вход через Google включается при сборке: VITE_AUTH=1 (нужен включённый провайдер в Firebase).
+const AUTH_ENABLED = import.meta.env.VITE_AUTH === '1'
+
+function Greenhouse() {
   const [plants, setPlants] = useState(null)
   const [error, setError] = useState(null)
 
@@ -17,8 +20,7 @@ function Greenhouse({ user }) {
       <header className="topbar">
         <h1>My Greenhouse</h1>
         <span className="subtitle">
-          Plant Society{plants ? ` · ${plants.length} растений` : ''} ·{' '}
-          <button className="link" onClick={() => signOut(auth)}>Выйти</button>
+          Plant Society{plants ? ` · ${plants.length} растений` : ''} {AUTH_ENABLED && <button className="link" onClick={() => signOut(auth)}>Выйти</button>}
         </span>
       </header>
 
@@ -59,12 +61,12 @@ function SignIn() {
 
 export default function App() {
   // undefined — ещё проверяем сессию, null — не вошли
-  const [user, setUser] = useState(undefined)
-  useEffect(() => onAuthStateChanged(auth, setUser), [])
+  const [user, setUser] = useState(AUTH_ENABLED ? undefined : null)
+  useEffect(() => (AUTH_ENABLED ? onAuthStateChanged(auth, setUser) : undefined), [])
 
   return (
     <div className="app">
-      {user === undefined ? null : user ? <Greenhouse user={user} /> : <SignIn />}
+      {!AUTH_ENABLED ? <Greenhouse /> : user === undefined ? null : user ? <Greenhouse /> : <SignIn />}
     </div>
   )
 }
