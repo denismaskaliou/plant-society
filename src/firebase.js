@@ -6,14 +6,15 @@ import {
   persistentMultipleTabManager,
 } from 'firebase/firestore'
 
-// Web-конфиг Firebase не секрет: безопасность определяется правилами Firestore.
+// Конфиг берётся из .env (в git не попадает). Шаблон — .env.example.
+const env = import.meta.env
 const firebaseConfig = {
-  apiKey: 'AIzaSyDxuZp4R7Tk7klD9_ntgGo7TJad8o_ahFU',
-  authDomain: 'plant-society-2026.firebaseapp.com',
-  projectId: 'plant-society-2026',
-  storageBucket: 'plant-society-2026.firebasestorage.app',
-  messagingSenderId: '950951357137',
-  appId: '1:950951357137:web:f604a7b76c3fa88fdc33f0',
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
 }
 
 const app = initializeApp(firebaseConfig)
