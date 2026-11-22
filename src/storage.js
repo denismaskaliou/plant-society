@@ -1,8 +1,10 @@
-// Слой хранения. Сейчас — localStorage, позже заменим на запросы в базу,
-// не трогая компоненты: достаточно переписать эти две функции.
+// Слой хранения на Firestore (коллекция "plants").
+// Компоненты знают только про loadPlants / savePlant / deletePlant.
+import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { db } from './firebase.js'
 import { PLANT_POOL } from './plantPool.js'
 
-const KEY = 'plantsociety.plants.v1'
+const plantsCol = collection(db, 'plants')
 
 function pickRandom(list, n) {
   const copy = [...list]
@@ -14,29 +16,39 @@ function pickRandom(list, n) {
 }
 
 function seed() {
-  return pickRandom(PLANT_POOL, 3).map((p) => ({
+  return pickRandom(PLANT_POOL, 3).map((p, i) => ({
     id: crypto.randomUUID(),
     dateAdded: new Date().toISOString(),
+    order: i,
     ...p,
   }))
 }
 
+// Один общий промис: StrictMode (и любые повторные вызовы) не засеют базу дважды.
+let loading = null
+
 export function loadPlants() {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // повреждённые данные или недоступный storage — просто пересоздаём
-  }
-  const plants = seed()
-  savePlants(plants)
-  return plants
+  loading ??= (async () => {
+    const snap = await getDocs(plantsCol)
+    if (snap.empty) {
+      const plants = seed()
+      const batch = writeBatch(db)
+      plants.forEach((p) => batch.set(doc(plantsCol, p.id), p))
+      await batch.commit()
+      return plants
+    }
+    return snap.docs.map((d) => d.data()).sort((a, b) => a.order - b.order)
+  })().catch((e) => {
+    loading = null
+    throw e
+  })
+  return loading
 }
 
-export function savePlants(plants) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(plants))
-  } catch {
-    // storage недоступен — работаем в памяти
-  }
+export function savePlant(plant) {
+  return setDoc(doc(plantsCol, plant.id), plant)
+}
+
+export function deletePlant(id) {
+  return deleteDoc(doc(plantsCol, id))
 }

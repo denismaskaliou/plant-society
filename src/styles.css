@@ -54,3 +54,4 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.status { text-align: center; opacity: .75; font-size: 14px; }
