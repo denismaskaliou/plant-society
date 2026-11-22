@@ -55,3 +55,10 @@ body {
   white-space: nowrap;
 }
 .status { text-align: center; opacity: .75; font-size: 14px; }
+.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.signin { text-align: center; padding-top: 22vh; }
+.signin h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; }
+.btn {
+  margin-top: 16px; padding: 12px 22px; border: 0; border-radius: 999px;
+  background: var(--cream); color: var(--forest); font-size: 15px; font-weight: 600; cursor: pointer;
+}

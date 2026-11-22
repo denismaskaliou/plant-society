@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import PlantArt from './PlantArt.jsx'
+import { auth } from './firebase.js'
 import { loadPlants } from './storage.js'
 
-export default function App() {
+function Greenhouse({ user }) {
   const [plants, setPlants] = useState(null)
   const [error, setError] = useState(null)
 
@@ -11,11 +13,12 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app">
+    <>
       <header className="topbar">
         <h1>My Greenhouse</h1>
         <span className="subtitle">
-          Plant Society{plants ? ` · ${plants.length} растений` : ''}
+          Plant Society{plants ? ` · ${plants.length} растений` : ''} ·{' '}
+          <button className="link" onClick={() => signOut(auth)}>Выйти</button>
         </span>
       </header>
 
@@ -35,6 +38,33 @@ export default function App() {
           ))}
         </main>
       )}
+    </>
+  )
+}
+
+function SignIn() {
+  const [error, setError] = useState(null)
+  const signIn = () =>
+    signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => setError(e.message))
+
+  return (
+    <div className="signin">
+      <h1>Plant Society</h1>
+      <p className="status">Личная теплица. Войдите, чтобы продолжить.</p>
+      <button className="btn" onClick={signIn}>Войти через Google</button>
+      {error && <p className="status">{error}</p>}
+    </div>
+  )
+}
+
+export default function App() {
+  // undefined — ещё проверяем сессию, null — не вошли
+  const [user, setUser] = useState(undefined)
+  useEffect(() => onAuthStateChanged(auth, setUser), [])
+
+  return (
+    <div className="app">
+      {user === undefined ? null : user ? <Greenhouse user={user} /> : <SignIn />}
     </div>
   )
 }
