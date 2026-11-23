@@ -103,7 +103,7 @@ function Greenhouse() {
       <header className="topbar">
         <h1>My Greenhouse</h1>
         <span className="subtitle">
-          Plant Society · {plants.length} растений {AUTH_ENABLED && <button className="link" onClick={() => signOut(auth)}>Выйти</button>}
+          {plants.length} растений {AUTH_ENABLED && <button className="link" onClick={() => signOut(auth)}>Выйти</button>}
         </span>
       </header>
 
