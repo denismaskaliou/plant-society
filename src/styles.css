@@ -7,12 +7,20 @@
 
 * { box-sizing: border-box; }
 
+/* фон на html: при «резинке» на iOS за краями страницы виден тот же цвет */
+html { background-color: #244D35; }
+/* градиент — отдельный фиксированный слой: фон на html с fixed глючит и даёт швы */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 80% at 80% 0%, #33704b 0%, #244D35 50%, #1c3d2a 100%);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   color: var(--text);
-  background: radial-gradient(120% 80% at 80% 0%, #3c7a52 0%, #244D35 45%, #16301f 100%) fixed;
+  background: transparent;
 }
 
 .app {
@@ -21,7 +29,14 @@ body {
   padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 32px);
 }
 
-.topbar { text-align: center; margin-bottom: 20px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; text-align: left; margin-bottom: 20px; }
+.add-btn {
+  width: 38px; height: 38px; flex: none; padding: 0; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.18); color: rgba(235,247,255,.92);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font-size: 24px; line-height: 1; cursor: pointer; transition: background .2s, transform .15s;
+}
+.add-btn:active { transform: scale(.92); background: rgba(255,255,255,.28); }
 .topbar h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .02em; }
 .subtitle { font-size: 12px; opacity: .65; }
 
@@ -80,3 +95,19 @@ body {
 .mini__can--done { background: rgba(143,211,168,.38); color: #e3fbea; border-color: rgba(143,211,168,.55); }
 .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); transform: translateX(-50%); display: flex; gap: 14px; align-items: center; padding: 11px 18px; border-radius: 999px; background: var(--cream); color: var(--forest); font-size: 14px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .toast .link { color: var(--forest); font-weight: 600; }
+
+/* форма добавления растения */
+.field { display: block; margin-top: 14px; }
+.field__label { display: block; margin-bottom: 6px; font-size: 13px; opacity: .7; }
+.input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.1); color: inherit; font: inherit; font-size: 15px; }
+.input:focus { outline: 2px solid var(--cream); outline-offset: 1px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 7px 13px; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.chip--on { background: var(--cream); color: var(--forest); border-color: var(--cream); font-weight: 600; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); padding: 0; cursor: pointer; }
+.swatch--on { border-color: var(--cream); box-shadow: 0 0 0 2px var(--forest), 0 0 0 4px var(--cream); }
+.btn:disabled { opacity: .45; cursor: default; }
+.panel .btn { width: 100%; }
+.field__hint { display: block; margin-top: 4px; font-size: 12px; opacity: .6; }
+.sheet__bar { display: flex; justify-content: space-between; }
+.btn--danger { margin-top: 10px; background: rgba(241,120,120,.16); color: #f4a3a3; border: 1px solid rgba(241,120,120,.4); }
