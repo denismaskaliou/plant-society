@@ -175,7 +175,15 @@ function Greenhouse() {
             {plants.length} растений {AUTH_ENABLED && <button className="link" onClick={() => signOut(auth)}>Выйти</button>}
           </span>
         </div>
-        <button className="add-btn" onClick={() => setAdding(true)} aria-label="Добавить растение" title="Добавить растение">+</button>
+        <div className="topbar__actions">
+          <button className="add-btn" onClick={() => window.location.reload()} aria-label="Обновить страницу" title="Обновить страницу">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+              <path d="M20 4v5h-5" />
+            </svg>
+          </button>
+          <button className="add-btn" onClick={() => setAdding(true)} aria-label="Добавить растение" title="Добавить растение">+</button>
+        </div>
       </header>
 
       {error && <p className="status">Не удалось сохранить: {error}</p>}

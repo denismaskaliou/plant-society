@@ -38,8 +38,10 @@ function Doodles() {
 
 export default function Postcard({ plant, full = false }) {
   const { photo, latin, name, emoji, art } = plant
+  // загруженное пользователем фото показываем как есть: без подписи, сердечек и затемнения
+  const clean = Boolean(photo?.startsWith('data:'))
   return (
-    <div className={`postcard${full ? ' postcard--full' : ''}`}>
+    <div className={`postcard${full ? ' postcard--full' : ''}${clean ? ' postcard--clean' : ''}`}>
       {photo ? (
         <img className="postcard__photo" src={photo} alt={name} loading="lazy" />
       ) : (
@@ -47,7 +49,8 @@ export default function Postcard({ plant, full = false }) {
           <PlantArt {...art} />
         </div>
       )}
-      {full && <Doodles />}
+      {full && !clean && <Doodles />}
+      {!clean && (
       <div className="postcard__caption">
         <div className="postcard__latin">{latin}</div>
         <div className="postcard__line" />
@@ -56,6 +59,7 @@ export default function Postcard({ plant, full = false }) {
           {captionLine(plant)} {emoji}
         </div>
       </div>
+      )}
     </div>
   )
 }
