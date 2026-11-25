@@ -7,8 +7,8 @@
 // tagline — своя третья строка подписи; иначе собирается из name и aka
 export const CARE_TYPES = {
   water: { label: 'Полив', button: 'Полил сегодня', staleDays: 7 },
-  fertilize: { label: 'Удобрение', button: 'Удобрил сегодня' },
-  pest: { label: 'Обработка от жуков', button: 'Обработал сегодня' },
+  fertilize: { label: 'Подкормка', button: 'Удобрил сегодня' },
+  pest: { label: 'Обработка', button: 'Обработал сегодня' },
 }
 
 export const PLANTS = [

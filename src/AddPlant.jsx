@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Postcard from './Postcard.jsx'
-import { formatDate } from './plants.js'
+import { lastCare } from './plants.js'
 
 const LEAVES = [['broad', 'Широкие'], ['spiky', 'Острые'], ['bushy', 'Пышные'], ['round', 'Круглые'], ['drop', 'Капля'], ['heart', 'Сердечки']]
 const LEAF_SIZES = [['s', 'Мелкие'], ['m', 'Средние'], ['l', 'Крупные']]
@@ -45,6 +45,31 @@ function Choice({ label, options, value, onChange }) {
   )
 }
 
+// Дата: точная (ГГГГ-ММ-ДД) или, если день неизвестен, только месяц и год (ГГГГ-ММ).
+function DateField({ label, value, onChange }) {
+  const [monthOnly, setMonthOnly] = useState(value.length === 7)
+  const toggle = () => {
+    const next = !monthOnly
+    setMonthOnly(next)
+    // точная → месяц: обрезаем день; месяц → точная: день неизвестен, выбрать заново
+    onChange(next ? value.slice(0, 7) : '')
+  }
+  return (
+    <div className="field">
+      <span className="field__label">{label}</span>
+      <input
+        className="input"
+        type={monthOnly ? 'month' : 'date'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <label className="field__check">
+        <input type="checkbox" checked={monthOnly} onChange={toggle} /> Точной даты не знаю 🤷‍♀️
+      </label>
+    </div>
+  )
+}
+
 function Swatches({ label, colors, value, onChange }) {
   return (
     <div className="field">
@@ -80,14 +105,20 @@ function resizePhoto(file, max = 900) {
   })
 }
 
-const TEXT_KEYS = ['aka', 'latin', 'acquired', 'repotted', 'notes']
+// Подкормка и обработка — это события ухода (как «Удобрил сегодня»): форма задаёт дату последнего.
+const CARE_FIELDS = [['fertilize', '📅 Подкормка'], ['pest', '📅 Обработка']]
+const TEXT_KEYS = ['aka', 'latin', 'location', 'acquired', 'repotted', 'notes']
 
 // Форма добавления; с initial — редактирование. Для встроенных растений (не custom) внешний вид не меняется:
 // у них свои иллюстрации или фото.
 export default function AddPlant({ onClose, onSave, onDelete, initial }) {
   const editing = Boolean(initial)
   const canArt = !editing || initial.custom
-  const start = { name: initial?.name ?? '', ...Object.fromEntries(TEXT_KEYS.map((k) => [k, initial?.[k] ?? ''])) }
+  const start = {
+    name: initial?.name ?? '',
+    ...Object.fromEntries(TEXT_KEYS.map((k) => [k, initial?.[k] ?? ''])),
+    ...Object.fromEntries(CARE_FIELDS.map(([type]) => [type, lastCare(initial?.care ?? [], type) ?? ''])),
+  }
   const [form, setForm] = useState(start)
   const initialArt = { ...DEFAULT_ART, ...initial?.art }
   const [art, setArt] = useState(initialArt)
@@ -127,7 +158,9 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
       if (photo) plant.photo = photo
       for (const k of TEXT_KEYS) if (form[k].trim()) plant[k] = form[k].trim()
     }
-    const ok = await onSave(plant)
+    // новая дата подкормки/обработки = новое событие ухода; пустое поле историю не стирает
+    const care = CARE_FIELDS.filter(([type]) => form[type] && form[type] !== start[type]).map(([type]) => ({ type, date: form[type] }))
+    const ok = await onSave(plant, care)
     if (!ok) setSaving(false)
   }
 
@@ -150,17 +183,18 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
         </div>
         <label className="field"><span className="field__label">Название *</span>
           <input className="input" value={form.name} onChange={set('name')} placeholder="Например, Монстера" /></label>
-        <label className="field"><span className="field__label">Ласковое имя</span>
+        <label className="field"><span className="field__label">Nickname</span>
           <input className="input" value={form.aka} onChange={set('aka')} /></label>
         <label className="field"><span className="field__label">Латинское название</span>
           <input className="input" value={form.latin} onChange={set('latin')} /></label>
-        <label className="field"><span className="field__label">Приобретено</span>
-          <input className="input" type="date" value={form.acquired.length === 10 ? form.acquired : ''} onChange={set('acquired')} />
-          {form.acquired.length === 7 && <span className="field__hint">Сейчас: {formatDate(form.acquired)}</span>}</label>
-        <label className="field"><span className="field__label">Пересадка</span>
-          <input className="input" type="date" value={form.repotted.length === 10 ? form.repotted : ''} onChange={set('repotted')} />
-          {form.repotted.length === 7 && <span className="field__hint">Сейчас: {formatDate(form.repotted)}</span>}</label>
-        <label className="field"><span className="field__label">Заметки</span>
+        <label className="field"><span className="field__label">📍 Location</span>
+          <input className="input" value={form.location} onChange={set('location')} placeholder="Например, зал, подоконник" /></label>
+        <DateField label="📅 Приобретено" value={form.acquired} onChange={(v) => setForm((f) => ({ ...f, acquired: v }))} />
+        <DateField label="📅 Пересадка" value={form.repotted} onChange={(v) => setForm((f) => ({ ...f, repotted: v }))} />
+        {CARE_FIELDS.map(([type, label]) => (
+          <DateField key={type} label={label} value={form[type]} onChange={(v) => setForm((f) => ({ ...f, [type]: v }))} />
+        ))}
+        <label className="field"><span className="field__label">✍️ Заметки</span>
           <textarea className="input" rows="3" value={form.notes} onChange={set('notes')} /></label>
         {canArt && (
           <>

@@ -31,6 +31,9 @@ function Detail({ plant, onClose, onCare, onEdit }) {
             </div>
           )
         })}
+        {plant.location && (
+          <div className="row"><span>Location</span><span>{plant.location}</span></div>
+        )}
         {plant.acquired && (
           <div className="row"><span>Приобретено</span><span>{formatDate(plant.acquired)}</span></div>
         )}
@@ -106,10 +109,11 @@ function Greenhouse() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const onAdd = async (data) => {
+  const onAdd = async (data, care = []) => {
     try {
       const plant = await addPlant(data)
-      setCustom((prev) => [...prev, plant])
+      await Promise.all(care.map((ev) => addCare(plant.id, ev)))
+      setCustom((prev) => [...prev, { ...plant, care }])
       setAdding(false)
       return true
     } catch (e) {
@@ -118,12 +122,20 @@ function Greenhouse() {
     }
   }
 
-  const onEditSave = async (patch) => {
-    if (!Object.keys(patch).length) {
+  const onEditSave = async (patch, care = []) => {
+    if (!Object.keys(patch).length && !care.length) {
       setEditing(false)
       return true
     }
     try {
+      if (care.length) {
+        await Promise.all(care.map((ev) => addCare(openId, ev)))
+        setExtra((prev) => ({ ...prev, [openId]: [...(prev[openId] ?? []), ...care] }))
+      }
+      if (!Object.keys(patch).length) {
+        setEditing(false)
+        return true
+      }
       await updatePlant(openId, patch)
       const apply = (p) => {
         const next = { ...p, ...patch }

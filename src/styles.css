@@ -115,3 +115,5 @@ body {
 .postcard--clean::after { display: none; }
 .topbar__actions { display: flex; gap: 10px; }
 .add-btn { display: inline-flex; align-items: center; justify-content: center; }
+.field__check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; opacity: .75; cursor: pointer; }
+.field__check input { width: 16px; height: 16px; accent-color: var(--cream); }
