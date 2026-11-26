@@ -259,7 +259,7 @@ const ART = {
 const FALLBACK = { leaf: 'broad', leafColor: '#4d8f5a', pot: 'round', potColor: '#c9774f' }
 
 export default function PlantIllustration({ plant }) {
-  const Custom = ART[plant.id]
+  const Custom = plant.artCustom ? null : ART[plant.id]
   if (Custom) return <Custom />
   return <PlantArt {...(plant.art ?? FALLBACK)} />
 }

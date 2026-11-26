@@ -2,7 +2,7 @@
 // Описания растений лежат в plants.js; сюда пишутся только события ухода,
 // добавленные в приложении. Документ растения: plants/{id} = { care: [{ type, date }] }.
 // Старые документы с другими id игнорируются.
-import { arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, setDoc } from 'firebase/firestore'
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db } from './firebase.js'
 
 const plantsCol = collection(db, 'plants')
@@ -69,4 +69,29 @@ export function updatePlant(id, patch) {
 // Добавленное растение удаляется вместе с историей ухода; встроенное (оно в plants.js) только скрывается.
 export function deletePlant(id, isCustom) {
   return isCustom ? deleteDoc(doc(plantsCol, id)) : setDoc(doc(plantsCol, id), { hidden: true }, { merge: true })
+}
+
+// ---------- галерея ----------
+// Главное фото лежит в самом документе растения (поле photo), остальные — отдельными документами
+// plants/{id}/photos/{photoId} = { src, createdAt }: у документа лимит 1 МБ, а фото может быть много.
+// Порядок остальных фото хранится в поле растения gallery: [photoId, ...].
+const photosCol = (plantId) => collection(db, 'plants', plantId, 'photos')
+
+// { [photoId]: src }
+export async function loadGallery(plantId) {
+  const snap = await getDocs(photosCol(plantId))
+  const byId = {}
+  snap.forEach((d) => {
+    byId[d.id] = d.data().src
+  })
+  return byId
+}
+
+export async function addPhoto(plantId, src) {
+  const ref = await addDoc(photosCol(plantId), { src, createdAt: Date.now() })
+  return ref.id
+}
+
+export function deletePhotos(plantId, ids) {
+  return Promise.all(ids.map((id) => deleteDoc(doc(photosCol(plantId), id))))
 }

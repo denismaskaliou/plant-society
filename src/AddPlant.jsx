@@ -57,9 +57,8 @@ const TEXT_KEYS = ['aka', 'latin', 'location', 'acquired', 'repotted', 'notes']
 
 // Форма добавления; с initial — редактирование. Для встроенных растений (не custom) внешний вид не меняется:
 // у них свои иллюстрации или фото.
-export default function AddPlant({ onClose, onSave, onDelete, initial }) {
+export default function AddPlant({ onClose, onSave, onDelete, initial, initialPhotos = [] }) {
   const editing = Boolean(initial)
-  const canArt = !editing || initial.custom
   const start = {
     name: initial?.name ?? '',
     ...Object.fromEntries(TEXT_KEYS.map((k) => [k, initial?.[k] ?? ''])),
@@ -70,23 +69,28 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
   // новое растение сразу получает случайный аватар; он висит сверху, пока не добавят фото
   const [art, setArt] = useState(() => (initial ? initialArt : randomArt()))
   const [avatarOpen, setAvatarOpen] = useState(false)
-  const [photo, setPhoto] = useState(initial?.photo ?? null)
+  // галерея: items[0] — главное фото, остальные — карусель. id есть у фото из подколлекции
+  const [items, setItems] = useState(() => initialPhotos.map((p, i) => ({ key: p.id ?? `m${i}`, ...p })))
+  const photo = items[0]?.src ?? null
   const [photoError, setPhotoError] = useState(null)
   const [saving, setSaving] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const name = form.name.trim()
 
-  const pickPhoto = async (e) => {
-    const file = e.target.files?.[0]
+  const addPhotos = async (e) => {
+    const files = [...(e.target.files ?? [])]
     e.target.value = ''
-    if (!file) return
+    if (!files.length) return
     try {
-      setPhoto(await resizePhoto(file))
+      const srcs = await Promise.all(files.map((f) => resizePhoto(f)))
+      setItems((prev) => [...prev, ...srcs.map((src) => ({ key: `n${Math.random().toString(36).slice(2)}`, src }))])
       setPhotoError(null)
     } catch (err) {
       setPhotoError(err.message)
     }
   }
+  const makeMain = (i) => setItems((prev) => [prev[i], ...prev.filter((_, k) => k !== i)])
+  const removePhoto = (i) => setItems((prev) => prev.filter((_, k) => k !== i))
 
   const submit = async (e) => {
     e.preventDefault()
@@ -98,16 +102,21 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
       plant = {}
       if (name !== start.name) plant.name = name
       for (const k of TEXT_KEYS) if (form[k].trim() !== start[k]) plant[k] = form[k].trim() || null
-      if (photo !== (initial.photo ?? null)) plant.photo = photo
-      if (canArt && JSON.stringify(art) !== JSON.stringify(initialArt)) plant.art = art
+      if (JSON.stringify(art) !== JSON.stringify(initialArt)) {
+        plant.art = art
+        // у встроенных растений своя иллюстрация в сетке: флаг говорит рисовать вместо неё выбранный аватар
+        if (!initial.custom) plant.artCustom = true
+      }
     } else {
       plant = { name, art }
-      if (photo) plant.photo = photo
       for (const k of TEXT_KEYS) if (form[k].trim()) plant[k] = form[k].trim()
     }
     // новая дата подкормки/обработки = новое событие ухода; пустое поле историю не стирает
     const care = CARE_FIELDS.filter(([type]) => form[type] && form[type] !== start[type]).map(([type]) => ({ type, date: form[type] }))
-    const ok = await onSave(plant, care)
+    // null — галерея не менялась; иначе полный новый список (главное первым)
+    const sig = (list) => list.map((p) => p.id ?? p.src).join('|')
+    const photos = sig(items) === sig(initialPhotos) ? null : items
+    const ok = await onSave(plant, care, photos)
     if (!ok) setSaving(false)
   }
 
@@ -118,21 +127,26 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
   return (
     <form className="sheet" onSubmit={submit} aria-label={editing ? 'Изменить растение' : 'Новое растение'}>
       <button type="button" className="sheet__back" onClick={onClose}>← Назад</button>
-      <Postcard plant={{ ...(initial ?? {}), ...form, name: name || 'Новое растение', art: canArt ? art : initial.art, photo, emoji: initial?.emoji ?? '' }} full />
-      {canArt && !photo && (
-        <button type="button" className="btn btn--wide" onClick={() => setAvatarOpen(true)}>🎨 Настроить аватар</button>
-      )}
+      <Postcard plant={{ ...(initial ?? {}), ...form, name: name || 'Новое растение', art, photo, emoji: initial?.emoji ?? '' }} full />
+      <button type="button" className="btn btn--wide" onClick={() => setAvatarOpen(true)}>🎨 Настроить аватар</button>
 
       <section className="panel">
         <div className="field">
           <span className="field__label">Фото</span>
-          <div className="chips">
-            <label className="chip">
-              {photo ? 'Заменить фото' : 'Загрузить фото'}
-              <input type="file" accept="image/*" hidden onChange={pickPhoto} />
+          <div className="thumbs">
+            {items.map((it, i) => (
+              <div key={it.key} className={`thumb${i === 0 ? ' thumb--main' : ''}`}>
+                <img src={it.src} alt="" onClick={() => makeMain(i)} title={i === 0 ? 'Главное фото' : 'Сделать главным'} />
+                <button type="button" className="thumb__x" onClick={() => removePhoto(i)} aria-label="Убрать фото">×</button>
+                {i === 0 && <span className="thumb__badge">Главное</span>}
+              </div>
+            ))}
+            <label className="thumb thumb--add" aria-label="Добавить фото">
+              ＋
+              <input type="file" accept="image/*" multiple hidden onChange={addPhotos} />
             </label>
-            {photo?.startsWith('data:') && <button type="button" className="chip" onClick={() => setPhoto(null)}>Убрать фото</button>}
           </div>
+          {items.length > 1 && <span className="field__hint">Нажми на фото, чтобы сделать его главным</span>}
           {photoError && <span className="field__hint">{photoError}</span>}
         </div>
         <label className="field"><span className="field__label">Название *</span>

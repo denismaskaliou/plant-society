@@ -2,23 +2,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import MiniCard from './MiniCard.jsx'
 import AddPlant from './AddPlant.jsx'
+import Carousel from './Carousel.jsx'
 import Postcard from './Postcard.jsx'
 import { auth } from './firebase.js'
-import { addCare, addPlant, loadCare, loadCustomPlants, deletePlant, loadOverrides, removeCare, updatePlant } from './storage.js'
+import { addCare, addPhoto, addPlant, deletePhotos, loadGallery, loadCare, loadCustomPlants, deletePlant, loadOverrides, removeCare, updatePlant } from './storage.js'
 import { CARE_TYPES, PLANTS, agoText, daysSince, formatDate, lastCare, today } from './plants.js'
 
 // Вход через Google включается при сборке: VITE_AUTH=1 (нужен включённый провайдер в Firebase).
 const AUTH_ENABLED = import.meta.env.VITE_AUTH === '1'
 
-function Detail({ plant, onClose, onCare, onEdit }) {
+function Detail({ plant, extra, onClose, onCare, onEdit, canEdit }) {
   const rows = Object.entries(CARE_TYPES).filter(([type]) => lastCare(plant.care, type))
   return (
     <div className="sheet" role="dialog" aria-label={plant.name}>
       <div className="sheet__bar">
         <button className="sheet__back" onClick={onClose}>← Назад</button>
-        <button className="sheet__back" onClick={onEdit}>Изменить</button>
+        <button className="sheet__back" onClick={onEdit} disabled={!canEdit}>Изменить</button>
       </div>
-      <Postcard plant={plant} full />
+      {extra.length ? <Carousel plant={plant} extra={extra} /> : <Postcard plant={plant} full />}
 
       <section className="panel">
         {rows.map(([type, { label, staleDays }]) => {
@@ -62,6 +63,7 @@ function Greenhouse() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(false)
   const [overrides, setOverrides] = useState({}) // правки встроенных растений
+  const [galleries, setGalleries] = useState({}) // { plantId: { photoId: src } } — загружается при открытии растения
   const [toast, setToast] = useState(null) // { id, event } — последняя запись, которую можно отменить
 
   useEffect(() => {
@@ -75,6 +77,38 @@ function Greenhouse() {
     [extra, custom, overrides],
   )
   const open = plants.find((p) => p.id === openId)
+
+  useEffect(() => {
+    if (!openId) return
+    loadGallery(openId)
+      .then((g) => setGalleries((prev) => ({ ...prev, [openId]: g })))
+      .catch((e) => setError(e.message))
+  }, [openId])
+  const galleryReady = !open?.gallery?.length || Boolean(galleries[open.id])
+  const extraPhotos = open ? (open.gallery ?? []).map((id) => galleries[open.id]?.[id]).filter(Boolean) : []
+  // главное фото + остальные: то, что редактируется в форме
+  const photoItems = open
+    ? [
+        ...(open.photo ? [{ src: open.photo }] : []),
+        ...(open.gallery ?? []).filter((id) => galleries[open.id]?.[id]).map((id) => ({ id, src: galleries[open.id][id] })),
+      ]
+    : []
+
+  // Сохраняет список фото растения (главное первым): новые уходят в подколлекцию, убранные удаляются.
+  // Возвращает поля для документа растения и кэш галереи.
+  const persistPhotos = async (id, isCustom, items, plant) => {
+    const rest = items.slice(1)
+    const ids = await Promise.all(rest.map((it) => (it.id ? it.id : addPhoto(id, it.src))))
+    const keep = new Set(ids)
+    const gone = (plant?.gallery ?? []).filter((x) => !keep.has(x))
+    if (gone.length) await deletePhotos(id, gone)
+    const patch = { gallery: ids }
+    const main = items[0]?.src ?? null
+    if (main !== (plant?.photo || null)) patch.photo = main ?? (isCustom ? null : '')
+    const map = Object.fromEntries(rest.map((it, k) => [ids[k], it.src]))
+    setGalleries((prev) => ({ ...prev, [id]: map }))
+    return patch
+  }
 
   // Главная: сверху те, кого давно не поливали (или не поливали вовсе), недавно политые — в конце.
   // sort в JS стабильный, поэтому при равных датах порядок остаётся как в plants.js.
@@ -109,10 +143,15 @@ function Greenhouse() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const onAdd = async (data, care = []) => {
+  const onAdd = async (data, care = [], photos = null) => {
     try {
-      const plant = await addPlant(data)
+      let plant = await addPlant(data)
       await Promise.all(care.map((ev) => addCare(plant.id, ev)))
+      if (photos?.length) {
+        const photoPatch = await persistPhotos(plant.id, true, photos, null)
+        await updatePlant(plant.id, photoPatch)
+        plant = { ...plant, ...photoPatch }
+      }
       setCustom((prev) => [...prev, { ...plant, care }])
       setAdding(false)
       return true
@@ -122,12 +161,13 @@ function Greenhouse() {
     }
   }
 
-  const onEditSave = async (patch, care = []) => {
-    if (!Object.keys(patch).length && !care.length) {
+  const onEditSave = async (patch, care = [], photos = null) => {
+    if (!Object.keys(patch).length && !care.length && !photos) {
       setEditing(false)
       return true
     }
     try {
+      if (photos) Object.assign(patch, await persistPhotos(openId, custom.some((p) => p.id === openId), photos, open))
       if (care.length) {
         await Promise.all(care.map((ev) => addCare(openId, ev)))
         setExtra((prev) => ({ ...prev, [openId]: [...(prev[openId] ?? []), ...care] }))
@@ -162,6 +202,7 @@ function Greenhouse() {
   const onDelete = async () => {
     const isCustom = custom.some((p) => p.id === openId)
     try {
+      if (isCustom && open?.gallery?.length) await deletePhotos(openId, open.gallery)
       await deletePlant(openId, isCustom)
       if (isCustom) setCustom((prev) => prev.filter((p) => p.id !== openId))
       else setOverrides((prev) => ({ ...prev, [openId]: { ...(prev[openId] ?? {}), hidden: true } }))
@@ -174,9 +215,9 @@ function Greenhouse() {
     }
   }
 
-  if (editing && open) return <AddPlant initial={open} onClose={() => setEditing(false)} onSave={onEditSave} onDelete={onDelete} />
+  if (editing && open) return <AddPlant initial={open} initialPhotos={photoItems} onClose={() => setEditing(false)} onSave={onEditSave} onDelete={onDelete} />
   if (adding) return <AddPlant onClose={() => setAdding(false)} onSave={onAdd} />
-  if (open) return <Detail plant={open} onClose={() => setOpenId(null)} onCare={onCare} onEdit={() => setEditing(true)} />
+  if (open) return <Detail plant={open} extra={extraPhotos} canEdit={galleryReady} onClose={() => setOpenId(null)} onCare={onCare} onEdit={() => setEditing(true)} />
 
   return (
     <>
