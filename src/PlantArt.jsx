@@ -4,7 +4,7 @@ import { useId } from 'react'
 // { leaf, leafColor, pot, potColor } рисуются как раньше.
 //
 // Листья:  leaf (форма), leafSize, leafCount, spread, pattern + leaf2Color (узор), leafColor
-// Ствол:   trunk ('single'), trunkHeight, trunkThick, trunkBend, trunkColor, leafPlace (top | along)
+// Ствол:   trunk ('single' | 'bush'), trunkCount (куст: 2 | 3 | 5), trunkHeight, trunkThick, trunkBend, trunkColor, leafPlace (top | along)
 // Горшок:  pot (форма), potTexture, potColor
 
 // Форма листа: rx/ry — полуширина и длина/2 по умолчанию, kind — как рисуем.
@@ -112,14 +112,15 @@ function Pattern({ pattern, rx, ry, color }) {
 
 export default function PlantArt({
   leaf, leafColor, leaf2Color = '#f3e9c6', leafSize, leafCount, spread, pattern,
-  trunk, trunkHeight, trunkThick, trunkBend, trunkColor = '#7a4a32', leafPlace,
+  trunk, trunkCount, trunkHeight, trunkThick, trunkBend, trunkColor = '#7a4a32', leafPlace,
   pot, potColor, potTexture, hanger, hangerColor = '#e8dfcf',
 }) {
   const uid = useId().replace(/:/g, '')
   const base = LEAVES[leaf] ?? LEAVES.broad
   const k = SIZES[leafSize] ?? 1
-  const rx = base.rx * k
-  const ry = base.ry * k
+  const bushK = trunk === 'bush' ? 0.72 : 1 // на каждом стволе листья мельче, иначе куст сливается в пятно
+  const rx = base.rx * k * bushK
+  const ry = base.ry * k * bushK
   const angles = leafCount || spread
     ? lerpAngles(COUNTS[leafCount] ?? COUNTS.mid, SPREADS[spread] ?? SPREADS.normal)
     : base.angles
@@ -130,25 +131,57 @@ export default function PlantArt({
   const hanging = hanger && hanger !== 'none'
 
   // Ствол: кривая Безье от горшка вверх; листья либо на верхушке, либо по всей длине.
-  const hasTrunk = trunk === 'single'
+  // Куст — несколько стволов веером, на каждом свои листья.
+  const isBush = trunk === 'bush'
+  const hasTrunk = trunk === 'single' || isBush
   const H = TRUNK_HEIGHTS[trunkHeight] ?? TRUNK_HEIGHTS.mid
   const bend = trunkBend === 'curved' ? 9 : 0
-  const P0 = [50, pivot]
-  const C = [50 - bend, pivot - H * 0.55]
-  const P2 = [50 + bend * 0.6, pivot - H]
-  const at = (t) => [0, 1].map((j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t ** 2 * P2[j])
-  let placements
-  if (!hasTrunk) placements = angles.map((a) => ({ x: 50, y: pivot, a }))
-  else if (leafPlace === 'along') {
-    const n = angles.length
-    placements = Array.from({ length: n }, (_, i) => {
-      const t = n === 1 ? 1 : 0.3 + (0.7 * i) / (n - 1)
-      const [x, y] = at(t)
-      return { x, y, a: i === n - 1 ? 0 : (i % 2 ? 1 : -1) * (72 - 34 * t) }
-    })
-  } else placements = angles.map((a) => ({ x: P2[0], y: P2[1], a }))
+  const stemCount = isBush ? Number(trunkCount) || 3 : 1
+  const perStem = { few: 2, mid: 3, many: 4 }[leafCount] ?? 3
+  const stems = Array.from({ length: hasTrunk ? stemCount : 0 }, (_, i) => {
+    const m = i - (stemCount - 1) / 2 // -1..1 от левого стебля к правому
+    const dx = m * (stemCount === 5 ? 9 : 11)
+    const Hi = isBush ? H * (1 - 0.14 * Math.abs(m)) : H
+    const b = isBush ? (m < 0 ? -1 : 1) * bend * 0.7 : bend
+    const P0 = isBush ? [50 + dx * 0.25, pivot] : [50, pivot]
+    const C = isBush ? [50 + dx * 0.7 + b, pivot - Hi * 0.55] : [50 - bend, pivot - Hi * 0.55]
+    const P2 = isBush ? [50 + dx * 1.3 + b * 0.5, pivot - Hi] : [50 + bend * 0.6, pivot - Hi]
+    const at = (t) => [0, 1].map((j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t ** 2 * P2[j])
+    const lean = isBush ? dx * 0.8 : 0 // листья чуть наклонены в сторону стебля
+    let leaves
+    if (leafPlace === 'along') {
+      const n = isBush ? perStem + 1 : angles.length
+      leaves = Array.from({ length: n }, (_, j) => {
+        const t = n === 1 ? 1 : 0.3 + (0.7 * j) / (n - 1)
+        const [x, y] = at(t)
+        return { x, y, a: lean + (j === n - 1 ? 0 : (j % 2 ? 1 : -1) * (72 - 34 * t)) }
+      })
+    } else {
+      const fan = isBush ? lerpAngles(perStem, (SPREADS[spread] ?? SPREADS.normal) * 0.7) : angles
+      leaves = fan.map((an) => ({ x: P2[0], y: P2[1], a: lean + an }))
+    }
+    return { P0, C, P2, leaves, m }
+  }).sort((x, y) => Math.abs(y.m) - Math.abs(x.m)) // крайние рисуем первыми, центральный сверху
+  const looseLeaves = hasTrunk ? [] : angles.map((a) => ({ x: 50, y: pivot, a }))
   // чтобы высокое растение не вылезало за рамку, листья и ствол сжимаются к основанию
-  const fit = hasTrunk ? Math.min(1, (pivot - 3) / (H + 2 * ry)) : 1
+  const fit = hasTrunk ? Math.min(1, (pivot - 3) / (H + 2 * ry)) * (isBush && stemCount === 5 ? 0.9 : 1) : 1
+
+  const renderLeaf = ({ x, y, a }, i) => (
+    <g key={i} transform={`translate(${x} ${y}) rotate(${a})`} opacity={i % 2 ? 0.85 : 1}>
+      <LeafShape kind={base.kind} rx={rx} ry={ry} fill={leafColor} stroke="rgba(0,0,0,.18)" strokeWidth="0.8" />
+      {pattern === 'edge' && (
+        <g transform={`translate(0 ${-ry}) scale(.86) translate(0 ${ry})`}>
+          <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill="none" stroke={leaf2Color} strokeWidth="1.8" />
+        </g>
+      )}
+      {pattern === 'center' && (
+        <g transform={`translate(0 ${-ry}) scale(.55) translate(0 ${ry})`} opacity=".85">
+          <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill={leaf2Color} />
+        </g>
+      )}
+      {pattern !== 'edge' && pattern !== 'center' && <Pattern pattern={pattern} rx={rx} ry={ry} color={leaf2Color} />}
+    </g>
+  )
 
   return (
     <svg viewBox="0 0 100 120" className="plant-art" aria-hidden="true">
@@ -158,26 +191,14 @@ export default function PlantArt({
       {hanging ? <Hanger kind={hanger} color={hangerColor} rimX1={rimX1} rimX2={rimX2} rimTop={rimTop} /> : <ellipse cx="50" cy="109" rx="38" ry="5" fill="rgba(0,0,0,.35)" />}
       <g transform={hanging ? 'translate(5 14) scale(.9)' : undefined}>
       <g transform={fit < 1 ? `translate(50 ${pivot}) scale(${fit}) translate(-50 ${-pivot})` : undefined}>
-      {hasTrunk && (
-        <g fill="none" strokeLinecap="round">
-          <path d={`M${P0[0]} ${P0[1]} Q${C[0]} ${C[1]} ${P2[0]} ${P2[1]}`} stroke="rgba(0,0,0,.25)" strokeWidth={(TRUNK_WIDTHS[trunkThick] ?? 2.8) + 1.4} />
-          <path d={`M${P0[0]} ${P0[1]} Q${C[0]} ${C[1]} ${P2[0]} ${P2[1]}`} stroke={trunkColor} strokeWidth={TRUNK_WIDTHS[trunkThick] ?? 2.8} />
-        </g>
-      )}
-      {placements.map(({ x, y, a }, i) => (
-        <g key={i} transform={`translate(${x} ${y}) rotate(${a})`} opacity={i % 2 ? 0.85 : 1}>
-          <LeafShape kind={base.kind} rx={rx} ry={ry} fill={leafColor} stroke="rgba(0,0,0,.18)" strokeWidth="0.8" />
-          {pattern === 'edge' && (
-            <g transform={`translate(0 ${-ry}) scale(.86) translate(0 ${ry})`}>
-              <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill="none" stroke={leaf2Color} strokeWidth="1.8" />
-            </g>
-          )}
-          {pattern === 'center' && (
-            <g transform={`translate(0 ${-ry}) scale(.55) translate(0 ${ry})`} opacity=".85">
-              <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill={leaf2Color} />
-            </g>
-          )}
-          {pattern !== 'edge' && pattern !== 'center' && <Pattern pattern={pattern} rx={rx} ry={ry} color={leaf2Color} />}
+      {looseLeaves.map(renderLeaf)}
+      {stems.map(({ P0, C, P2, leaves }, si) => (
+        <g key={si}>
+          <g fill="none" strokeLinecap="round">
+            <path d={`M${P0[0]} ${P0[1]} Q${C[0]} ${C[1]} ${P2[0]} ${P2[1]}`} stroke="rgba(0,0,0,.25)" strokeWidth={(TRUNK_WIDTHS[trunkThick] ?? 2.8) + 1.4} />
+            <path d={`M${P0[0]} ${P0[1]} Q${C[0]} ${C[1]} ${P2[0]} ${P2[1]}`} stroke={trunkColor} strokeWidth={TRUNK_WIDTHS[trunkThick] ?? 2.8} />
+          </g>
+          {leaves.map(renderLeaf)}
         </g>
       ))}
       </g>

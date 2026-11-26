@@ -6,7 +6,8 @@ export const SPREADS = [['narrow', 'Узкий'], ['normal', 'Обычный'], 
 export const PATTERNS = [['none', 'Однотонные'], ['midrib', 'Жилка'], ['stripes', 'Прожилки'], ['spots', 'Пятна'], ['speckle', 'Крапинки'], ['edge', 'Кайма'], ['center', 'Сердцевина']]
 export const POTS = [['round', 'Круглый'], ['square', 'Квадратный'], ['tapered', 'Конус'], ['bowl', 'Чаша'], ['tall', 'Высокий'], ['vase', 'Ваза'], ['trough', 'Ящик'], ['egg', 'Яйцо']]
 export const POT_TEXTURES = [['smooth', 'Гладкий'], ['ribs', 'Рёбра'], ['grid', 'Клетка'], ['stripes', 'Полоски'], ['dots', 'Горошек'], ['waves', 'Волны'], ['diamonds', 'Ромбы'], ['terrazzo', 'Терраццо']]
-export const TRUNKS = [['none', 'Без ствола'], ['single', 'Один ствол']]
+export const TRUNKS = [['none', 'Без ствола'], ['single', 'Один ствол'], ['bush', 'Куст']]
+export const TRUNK_COUNTS = [['2', '2 ствола'], ['3', '3 ствола'], ['5', '5 стволов']]
 export const TRUNK_HEIGHTS = [['low', 'Низкий'], ['mid', 'Средний'], ['high', 'Высокий']]
 export const TRUNK_THICK = [['thin', 'Тонкий'], ['thick', 'Толстый']]
 export const TRUNK_BENDS = [['straight', 'Прямой'], ['curved', 'Изогнутый']]
@@ -33,7 +34,7 @@ export const DEFAULT_ART = {
   leafColor: LEAF_COLORS[0], leaf2Color: LEAF_COLORS[7],
   pot: 'round', potTexture: 'smooth', potColor: POT_COLORS[0],
   hanger: 'none', hangerColor: POT_COLORS[4],
-  trunk: 'none', trunkHeight: 'mid', trunkThick: 'thin', trunkBend: 'straight', trunkColor: TRUNK_COLORS[0], leafPlace: 'top',
+  trunk: 'none', trunkCount: '3', trunkHeight: 'mid', trunkThick: 'thin', trunkBend: 'straight', trunkColor: TRUNK_COLORS[0], leafPlace: 'top',
 }
 const pick = (list) => list[Math.floor(Math.random() * list.length)]
 export const randomArt = () => ({
@@ -41,7 +42,7 @@ export const randomArt = () => ({
   pattern: pick(PATTERNS)[0], leafColor: pick(LEAF_COLORS), leaf2Color: pick(LEAF_COLORS),
   pot: pick(POTS)[0], potTexture: pick(POT_TEXTURES)[0], potColor: pick(POT_COLORS),
   ...(Math.random() < 0.35
-    ? { trunk: 'single', trunkHeight: pick(TRUNK_HEIGHTS)[0], trunkThick: pick(TRUNK_THICK)[0], trunkBend: pick(TRUNK_BENDS)[0], trunkColor: pick(TRUNK_COLORS), leafPlace: pick(LEAF_PLACES)[0] }
+    ? { trunk: pick(['single', 'bush']), trunkCount: pick(TRUNK_COUNTS)[0], trunkHeight: pick(TRUNK_HEIGHTS)[0], trunkThick: pick(TRUNK_THICK)[0], trunkBend: pick(TRUNK_BENDS)[0], trunkColor: pick(TRUNK_COLORS), leafPlace: pick(LEAF_PLACES)[0] }
     : { trunk: 'none' }),
   hanger: Math.random() < 0.25 ? pick(HANGERS.slice(1))[0] : 'none', hangerColor: pick(POT_COLORS),
 })

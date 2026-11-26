@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PlantArt from './PlantArt.jsx'
 import { Choice, Swatches } from './Choice.jsx'
 import {
-  LEAVES, LEAF_SIZES, LEAF_COUNTS, SPREADS, PATTERNS, POTS, POT_TEXTURES, HANGERS, TRUNKS, TRUNK_HEIGHTS, TRUNK_THICK, TRUNK_BENDS, LEAF_PLACES, TRUNK_COLORS, LEAF_COLORS, POT_COLORS, randomArt,
+  LEAVES, LEAF_SIZES, LEAF_COUNTS, SPREADS, PATTERNS, POTS, POT_TEXTURES, HANGERS, TRUNKS, TRUNK_COUNTS, TRUNK_HEIGHTS, TRUNK_THICK, TRUNK_BENDS, LEAF_PLACES, TRUNK_COLORS, LEAF_COLORS, POT_COLORS, randomArt,
 } from './avatarOptions.js'
 
 const TABS = [['leaves', '🌿 Листья'], ['trunk', '🌳 Ствол'], ['pattern', '✨ Узор'], ['pot', '🪴 Горшок'], ['colors', '🎨 Цвета']]
@@ -43,8 +43,9 @@ export default function AvatarEditor({ art: initialArt, onDone, onCancel }) {
         {tab === 'trunk' && (
           <>
             <Choice label="Ствол" options={TRUNKS} value={art.trunk} onChange={set('trunk')} />
-            {art.trunk === 'single' && (
+            {art.trunk !== 'none' && (
               <>
+                {art.trunk === 'bush' && <Choice label="Количество стволов" options={TRUNK_COUNTS} value={art.trunkCount} onChange={set('trunkCount')} />}
                 <Choice label="Высота" options={TRUNK_HEIGHTS} value={art.trunkHeight} onChange={set('trunkHeight')} />
                 <Choice label="Толщина" options={TRUNK_THICK} value={art.trunkThick} onChange={set('trunkThick')} />
                 <Choice label="Форма" options={TRUNK_BENDS} value={art.trunkBend} onChange={set('trunkBend')} />
