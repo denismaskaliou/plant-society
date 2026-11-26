@@ -1,49 +1,8 @@
 import { useState } from 'react'
 import Postcard from './Postcard.jsx'
+import AvatarEditor from './AvatarEditor.jsx'
+import { randomArt, DEFAULT_ART } from './avatarOptions.js'
 import { lastCare } from './plants.js'
-
-const LEAVES = [['broad', 'Широкие'], ['spiky', 'Острые'], ['bushy', 'Пышные'], ['round', 'Круглые'], ['drop', 'Капля'], ['heart', 'Сердечки']]
-const LEAF_SIZES = [['s', 'Мелкие'], ['m', 'Средние'], ['l', 'Крупные']]
-const LEAF_COUNTS = [['few', 'Мало'], ['mid', 'Средне'], ['many', 'Много']]
-const SPREADS = [['narrow', 'Узкий'], ['normal', 'Обычный'], ['wide', 'Широкий']]
-const PATTERNS = [['none', 'Однотонные'], ['midrib', 'Жилка'], ['stripes', 'Прожилки'], ['spots', 'Пятна'], ['edge', 'Кайма']]
-const POTS = [['round', 'Круглый'], ['square', 'Квадратный'], ['tapered', 'Конус'], ['bowl', 'Чаша'], ['tall', 'Высокий']]
-const POT_TEXTURES = [['smooth', 'Гладкий'], ['ribs', 'Рёбра'], ['grid', 'Клетка'], ['stripes', 'Полоски'], ['dots', 'Горошек']]
-// Одна палитра и для листьев, и для узора
-const LEAF_COLORS = [
-  '#3f8a52', '#4d8f5a', '#2f6b3f', '#1f4d2e', '#7aa83f', '#6a8f9a',
-  '#b9dcc0', '#f3e9c6', '#f2d36b', '#f4c6d2', '#e58aa6', '#c0587a',
-  '#c9b8e8', '#d9b99b', '#8a5a3c',
-]
-const POT_COLORS = [
-  '#c9774f', '#9a5c52', '#7a4a32', '#f2c9a5', '#e8dfcf', '#f6f3ee',
-  '#d98aa8', '#e8735f', '#d9a43b', '#8fae93', '#2aa7a0', '#8fc1e3',
-  '#2f55b8', '#25356b', '#b7a3dd', '#3a3d40',
-]
-const DEFAULT_ART = {
-  leaf: 'broad', leafSize: 'm', leafCount: 'mid', spread: 'normal', pattern: 'none',
-  leafColor: LEAF_COLORS[0], leaf2Color: LEAF_COLORS[7],
-  pot: 'round', potTexture: 'smooth', potColor: POT_COLORS[0],
-}
-const pick = (list) => list[Math.floor(Math.random() * list.length)]
-const randomArt = () => ({
-  leaf: pick(LEAVES)[0], leafSize: pick(LEAF_SIZES)[0], leafCount: pick(LEAF_COUNTS)[0], spread: pick(SPREADS)[0],
-  pattern: pick(PATTERNS)[0], leafColor: pick(LEAF_COLORS), leaf2Color: pick(LEAF_COLORS),
-  pot: pick(POTS)[0], potTexture: pick(POT_TEXTURES)[0], potColor: pick(POT_COLORS),
-})
-
-function Choice({ label, options, value, onChange }) {
-  return (
-    <div className="field">
-      <span className="field__label">{label}</span>
-      <div className="chips">
-        {options.map(([v, text]) => (
-          <button key={v} type="button" className={`chip${value === v ? ' chip--on' : ''}`} onClick={() => onChange(v)}>{text}</button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // Дата: точная (ГГГГ-ММ-ДД) или, если день неизвестен, только месяц и год (ГГГГ-ММ).
 function DateField({ label, value, onChange }) {
@@ -66,19 +25,6 @@ function DateField({ label, value, onChange }) {
       <label className="field__check">
         <input type="checkbox" checked={monthOnly} onChange={toggle} /> Точной даты не знаю 🤷‍♀️
       </label>
-    </div>
-  )
-}
-
-function Swatches({ label, colors, value, onChange }) {
-  return (
-    <div className="field">
-      <span className="field__label">{label}</span>
-      <div className="chips">
-        {colors.map((c) => (
-          <button key={c} type="button" aria-label={c} className={`swatch${value === c ? ' swatch--on' : ''}`} style={{ background: c }} onClick={() => onChange(c)} />
-        ))}
-      </div>
     </div>
   )
 }
@@ -121,12 +67,13 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
   }
   const [form, setForm] = useState(start)
   const initialArt = { ...DEFAULT_ART, ...initial?.art }
-  const [art, setArt] = useState(initialArt)
+  // новое растение сразу получает случайный аватар; он висит сверху, пока не добавят фото
+  const [art, setArt] = useState(() => (initial ? initialArt : randomArt()))
+  const [avatarOpen, setAvatarOpen] = useState(false)
   const [photo, setPhoto] = useState(initial?.photo ?? null)
   const [photoError, setPhotoError] = useState(null)
   const [saving, setSaving] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const setA = (k) => (v) => setArt((a) => ({ ...a, [k]: v }))
   const name = form.name.trim()
 
   const pickPhoto = async (e) => {
@@ -164,10 +111,17 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
     if (!ok) setSaving(false)
   }
 
+  if (avatarOpen) {
+    return <AvatarEditor art={art} onCancel={() => setAvatarOpen(false)} onDone={(a) => { setArt(a); setAvatarOpen(false) }} />
+  }
+
   return (
     <form className="sheet" onSubmit={submit} aria-label={editing ? 'Изменить растение' : 'Новое растение'}>
       <button type="button" className="sheet__back" onClick={onClose}>← Назад</button>
       <Postcard plant={{ ...(initial ?? {}), ...form, name: name || 'Новое растение', art: canArt ? art : initial.art, photo, emoji: initial?.emoji ?? '' }} full />
+      {canArt && !photo && (
+        <button type="button" className="btn btn--wide" onClick={() => setAvatarOpen(true)}>🎨 Настроить аватар</button>
+      )}
 
       <section className="panel">
         <div className="field">
@@ -196,23 +150,6 @@ export default function AddPlant({ onClose, onSave, onDelete, initial }) {
         ))}
         <label className="field"><span className="field__label">✍️ Заметки</span>
           <textarea className="input" rows="3" value={form.notes} onChange={set('notes')} /></label>
-        {canArt && (
-          <>
-            <div className="field">
-              <button type="button" className="chip" onClick={() => setArt(randomArt())}>🎲 Случайный аватар</button>
-            </div>
-            <Choice label="Форма листа" options={LEAVES} value={art.leaf} onChange={setA('leaf')} />
-            <Choice label="Размер листа" options={LEAF_SIZES} value={art.leafSize} onChange={setA('leafSize')} />
-            <Choice label="Количество листьев" options={LEAF_COUNTS} value={art.leafCount} onChange={setA('leafCount')} />
-            <Choice label="Раскрытие" options={SPREADS} value={art.spread} onChange={setA('spread')} />
-            <Choice label="Узор листа" options={PATTERNS} value={art.pattern} onChange={setA('pattern')} />
-            <Swatches label="Цвет листьев" colors={LEAF_COLORS} value={art.leafColor} onChange={setA('leafColor')} />
-            {art.pattern !== 'none' && <Swatches label="Цвет узора" colors={LEAF_COLORS} value={art.leaf2Color} onChange={setA('leaf2Color')} />}
-            <Choice label="Горшок" options={POTS} value={art.pot} onChange={setA('pot')} />
-            <Choice label="Текстура горшка" options={POT_TEXTURES} value={art.potTexture} onChange={setA('potTexture')} />
-            <Swatches label="Цвет горшка" colors={POT_COLORS} value={art.potColor} onChange={setA('potColor')} />
-          </>
-        )}
         <button className="btn" type="submit" disabled={!name || saving}>{saving ? 'Сохраняю…' : 'Сохранить'}</button>
         {editing && onDelete && (
           <button

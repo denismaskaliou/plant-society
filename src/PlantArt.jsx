@@ -14,6 +14,10 @@ export const LEAVES = {
   round: { angles: [-60, -30, 0, 30, 60], rx: 15, ry: 16, kind: 'oval' },
   drop: { angles: [-58, -30, 0, 30, 58], rx: 11, ry: 24, kind: 'drop' },
   heart: { angles: [-58, -30, 0, 30, 58], rx: 12, ry: 21, kind: 'heart' },
+  lance: { angles: [-56, -28, 0, 28, 56], rx: 7, ry: 28, kind: 'drop' },
+  needle: { angles: [-52, -34, -16, 0, 16, 34, 52], rx: 2.6, ry: 30, kind: 'oval' },
+  fan: { angles: [-58, -30, 0, 30, 58], rx: 11, ry: 19, kind: 'fan' },
+  scallop: { angles: [-58, -30, 0, 30, 58], rx: 14, ry: 22, kind: 'scallop' },
 }
 
 const SIZES = { s: 0.78, m: 1, l: 1.2 }
@@ -27,6 +31,9 @@ export const POTS = {
   tapered: { d: 'M29 78 H71 L64 106 H36Z', rim: [28, 72, 76] },
   bowl: { d: 'M23 80 H77 Q77 106 50 106 Q23 106 23 80Z', rim: [21, 79, 78] },
   tall: { d: 'M35 68 H65 Q66 90 62 106 H38 Q34 90 35 68Z', rim: [33, 67, 66] },
+  vase: { d: 'M40 74 H60 Q60 82 66 88 Q72 98 64 106 H36 Q28 98 34 88 Q40 82 40 74Z', rim: [38, 62, 72] },
+  trough: { d: 'M18 86 H82 V104 Q82 106 80 106 H20 Q18 106 18 104Z', rim: [16, 84, 84] },
+  egg: { d: 'M32 78 H68 Q80 96 62 106 H38 Q20 96 32 78Z', rim: [30, 70, 76] },
 }
 
 function lerpAngles(n, max) {
@@ -36,11 +43,32 @@ function lerpAngles(n, max) {
 
 // Контур листа от основания (0,0) вверх до кончика (0, -2ry).
 function leafPath(kind, rx, ry) {
+  if (kind === 'fan') {
+    return `M0 0 C${-rx * 0.3} ${-ry * 0.6} ${-rx * 1.8} ${-ry * 1.1} ${-rx * 1.3} ${-ry * 1.8} Q0 ${-ry * 2.4} ${rx * 1.3} ${-ry * 1.8} C${rx * 1.8} ${-ry * 1.1} ${rx * 0.3} ${-ry * 0.6} 0 0Z`
+  }
   if (kind === 'drop') {
     return `M0 0 C${-rx * 1.3} ${-ry * 0.5} ${-rx * 0.7} ${-ry * 1.5} 0 ${-2 * ry} C${rx * 0.7} ${-ry * 1.5} ${rx * 1.3} ${-ry * 0.5} 0 0Z`
   }
   // heart
   return `M0 ${-2 * ry} C${-0.5 * rx} ${-1.5 * ry} ${-1.4 * rx} ${-1.1 * ry} ${-1.1 * rx} ${-0.5 * ry} C${-0.9 * rx} ${0.1 * ry} ${-0.2 * rx} ${0.1 * ry} 0 ${-0.2 * ry} C${0.2 * rx} ${0.1 * ry} ${0.9 * rx} ${0.1 * ry} ${1.1 * rx} ${-0.5 * ry} C${1.4 * rx} ${-1.1 * ry} ${0.5 * rx} ${-1.5 * ry} 0 ${-2 * ry}Z`
+}
+
+// Один контур листа; props (fill, stroke, ...) передаются фигурам.
+function LeafShape({ kind, rx, ry, ...props }) {
+  if (kind === 'oval') return <ellipse cx="0" cy={-ry} rx={rx} ry={ry} {...props} />
+  if (kind === 'scallop') {
+    // овал с «волнистым» краем из кружков
+    return (
+      <g>
+        {Array.from({ length: 10 }, (_, i) => {
+          const t = (i / 10) * Math.PI * 2
+          return <circle key={i} cx={rx * Math.cos(t)} cy={-ry + ry * Math.sin(t)} r={rx * 0.3} {...props} stroke="none" />
+        })}
+        <ellipse cx="0" cy={-ry} rx={rx} ry={ry} {...props} />
+      </g>
+    )
+  }
+  return <path d={leafPath(kind, rx, ry)} {...props} />
 }
 
 function Pattern({ pattern, rx, ry, color }) {
@@ -54,6 +82,15 @@ function Pattern({ pattern, rx, ry, color }) {
             <path d={`M0 ${-ry * k} L${-rx * 0.75} ${-ry * (k + 0.28)}`} />
             <path d={`M0 ${-ry * k} L${rx * 0.75} ${-ry * (k + 0.28)}`} />
           </g>
+        ))}
+      </g>
+    )
+  }
+  if (pattern === 'speckle') {
+    return (
+      <g fill={color}>
+        {[[-0.4, 0.5], [0.35, 0.65], [0, 0.9], [-0.3, 1.2], [0.4, 1.25], [0.05, 1.55], [-0.15, 0.3], [0.2, 0.35]].map(([x, k], i) => (
+          <circle key={i} cx={rx * x} cy={-ry * k} r="0.8" />
         ))}
       </g>
     )
@@ -72,7 +109,7 @@ function Pattern({ pattern, rx, ry, color }) {
 
 export default function PlantArt({
   leaf, leafColor, leaf2Color = '#f3e9c6', leafSize, leafCount, spread, pattern,
-  pot, potColor, potTexture,
+  pot, potColor, potTexture, hanger, hangerColor = '#e8dfcf',
 }) {
   const uid = useId().replace(/:/g, '')
   const base = LEAVES[leaf] ?? LEAVES.broad
@@ -85,29 +122,30 @@ export default function PlantArt({
   const potDef = POTS[pot] ?? POTS.round
   const [rimX1, rimX2, rimTop] = potDef.rim
   const rimColor = potColor
+  const pivot = rimTop + 4 // откуда растут листья
+  const hanging = hanger && hanger !== 'none'
 
   return (
     <svg viewBox="0 0 100 120" className="plant-art" aria-hidden="true">
       <defs>
         <clipPath id={`pot-${uid}`}><path d={potDef.d} /></clipPath>
       </defs>
-      <ellipse cx="50" cy="109" rx="38" ry="5" fill="rgba(0,0,0,.35)" />
+      {hanging ? <Hanger kind={hanger} color={hangerColor} rimX1={rimX1} rimX2={rimX2} rimTop={rimTop} /> : <ellipse cx="50" cy="109" rx="38" ry="5" fill="rgba(0,0,0,.35)" />}
+      <g transform={hanging ? 'translate(5 14) scale(.9)' : undefined}>
       {angles.map((a, i) => (
-        <g key={a} transform={`translate(50 80) rotate(${a})`} opacity={i % 2 ? 0.85 : 1}>
-          {base.kind === 'oval' ? (
-            <ellipse cx="0" cy={-ry} rx={rx} ry={ry} fill={leafColor} stroke="rgba(0,0,0,.18)" strokeWidth="0.8" />
-          ) : (
-            <path d={leafPath(base.kind, rx, ry)} fill={leafColor} stroke="rgba(0,0,0,.18)" strokeWidth="0.8" />
+        <g key={a} transform={`translate(50 ${pivot}) rotate(${a})`} opacity={i % 2 ? 0.85 : 1}>
+          <LeafShape kind={base.kind} rx={rx} ry={ry} fill={leafColor} stroke="rgba(0,0,0,.18)" strokeWidth="0.8" />
+          {pattern === 'edge' && (
+            <g transform={`translate(0 ${-ry}) scale(.86) translate(0 ${ry})`}>
+              <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill="none" stroke={leaf2Color} strokeWidth="1.8" />
+            </g>
           )}
-          {pattern === 'edge' ? (
-            base.kind === 'oval' ? (
-              <ellipse cx="0" cy={-ry} rx={rx * 0.86} ry={ry * 0.9} fill="none" stroke={leaf2Color} strokeWidth="1.6" />
-            ) : (
-              <path d={leafPath(base.kind, rx * 0.85, ry * 0.9)} fill="none" stroke={leaf2Color} strokeWidth="1.6" transform={`translate(0 ${-ry * 0.1})`} />
-            )
-          ) : (
-            <Pattern pattern={pattern} rx={rx} ry={ry} color={leaf2Color} />
+          {pattern === 'center' && (
+            <g transform={`translate(0 ${-ry}) scale(.55) translate(0 ${ry})`} opacity=".85">
+              <LeafShape kind={base.kind === 'scallop' ? 'oval' : base.kind} rx={rx} ry={ry} fill={leaf2Color} />
+            </g>
           )}
+          {pattern !== 'edge' && pattern !== 'center' && <Pattern pattern={pattern} rx={rx} ry={ry} color={leaf2Color} />}
         </g>
       ))}
       <path d={potDef.d} fill={potColor} />
@@ -115,7 +153,29 @@ export default function PlantArt({
         <PotTexture texture={potTexture} />
       </g>
       <rect x={rimX1} y={rimTop} width={rimX2 - rimX1} height="5" rx="2.5" fill={rimColor} filter="brightness(1.12)" />
+      </g>
     </svg>
+  )
+}
+
+// Подвес: три нити от обода к кольцу наверху (координаты уже с учётом сжатия горшка).
+function Hanger({ kind, color, rimX1, rimX2, rimTop }) {
+  const at = (x, y) => [5 + 0.9 * x, 14 + 0.9 * y]
+  const [lx, ly] = at(rimX1 + 3, rimTop + 3)
+  const [rx, ry] = at(rimX2 - 3, rimTop + 3)
+  const [mx, my] = at(50, rimTop + 1)
+  const style = {
+    rope: { strokeWidth: 1.4 },
+    chain: { strokeWidth: 2, strokeDasharray: '2.4 1.6' },
+    beads: { strokeWidth: 3.2, strokeDasharray: '0 5.2', strokeLinecap: 'round' },
+  }[kind] ?? { strokeWidth: 1.4 }
+  return (
+    <g fill="none" stroke={color} strokeLinecap="round" {...{}}>
+      {[[lx, ly], [mx, my], [rx, ry]].map(([x, y], i) => (
+        <path key={i} d={`M${x} ${y} L50 4`} {...style} />
+      ))}
+      <circle cx="50" cy="3.5" r="2.4" strokeWidth="1.4" />
+    </g>
   )
 }
 
@@ -139,6 +199,22 @@ function PotTexture({ texture }) {
         {[0, 1, 2, 3, 4].map((i) => <rect key={i} x="20" y={66 + i * 9} width="60" height="4.5" />)}
       </g>
     )
+  }
+  if (texture === 'waves') {
+    return (
+      <g fill="none" stroke="rgba(255,255,255,.42)" strokeWidth="1.4" strokeLinecap="round">
+        {[0, 1, 2, 3, 4].map((i) => <path key={i} d={`M14 ${72 + i * 8} q6 -4 12 0 t12 0 t12 0 t12 0 t12 0 t12 0`} />)}
+      </g>
+    )
+  }
+  if (texture === 'diamonds') {
+    const d = []
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 9; c++) if ((r + c) % 2 === 0) d.push(<path key={`${r}${c}`} d={`M${22 + c * 7} ${66 + r * 6} l3.5 3 l-3.5 3 l-3.5 -3z`} />)
+    return <g fill="rgba(255,255,255,.38)">{d}</g>
+  }
+  if (texture === 'terrazzo') {
+    const bits = [[30, 82, 2, 0], [42, 90, 1.5, 1], [55, 80, 2.2, 1], [66, 88, 1.6, 0], [36, 98, 1.8, 1], [50, 96, 2.4, 0], [62, 100, 1.5, 1], [72, 94, 2, 0], [28, 92, 1.4, 0], [48, 86, 1.3, 1], [58, 92, 1.2, 0], [70, 82, 1.5, 1], [40, 104, 1.6, 0], [34, 76, 1.5, 1], [60, 74, 1.8, 0]]
+    return <g>{bits.map(([x, y, r, w], i) => <circle key={i} cx={x} cy={y} r={r} fill={w ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.28)'} />)}</g>
   }
   if (texture === 'dots') {
     const dots = []
