@@ -29,11 +29,7 @@ export default function MiniCard({ plant, onOpen, onWater }) {
     <div className="mini">
       <button className="mini__open" onClick={onOpen} aria-label={plant.name}>
         <div className="mini__art">
-          {plant.photo?.startsWith('data:') ? (
-            <img className="mini__photo" src={plant.photo} alt="" />
-          ) : (
-            <PlantIllustration plant={plant} />
-          )}
+          <PlantIllustration plant={plant} />
         </div>
         <div className="mini__name">{plant.name}</div>
         <div className={`mini__ago${stale ? ' warn' : ''}`}>

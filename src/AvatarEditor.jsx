@@ -2,10 +2,10 @@ import { useState } from 'react'
 import PlantArt from './PlantArt.jsx'
 import { Choice, Swatches } from './Choice.jsx'
 import {
-  LEAVES, LEAF_SIZES, LEAF_COUNTS, SPREADS, PATTERNS, POTS, POT_TEXTURES, HANGERS, LEAF_COLORS, POT_COLORS, randomArt,
+  LEAVES, LEAF_SIZES, LEAF_COUNTS, SPREADS, PATTERNS, POTS, POT_TEXTURES, HANGERS, TRUNKS, TRUNK_HEIGHTS, TRUNK_THICK, TRUNK_BENDS, LEAF_PLACES, TRUNK_COLORS, LEAF_COLORS, POT_COLORS, randomArt,
 } from './avatarOptions.js'
 
-const TABS = [['leaves', '🌿 Листья'], ['pattern', '✨ Узор'], ['pot', '🪴 Горшок'], ['colors', '🎨 Цвета']]
+const TABS = [['leaves', '🌿 Листья'], ['trunk', '🌳 Ствол'], ['pattern', '✨ Узор'], ['pot', '🪴 Горшок'], ['colors', '🎨 Цвета']]
 
 // Отдельный экран редактора: превью и вкладки закреплены сверху, параметры листаются под ними.
 export default function AvatarEditor({ art: initialArt, onDone, onCancel }) {
@@ -38,6 +38,20 @@ export default function AvatarEditor({ art: initialArt, onDone, onCancel }) {
             <Choice label="Размер листа" options={LEAF_SIZES} value={art.leafSize} onChange={set('leafSize')} />
             <Choice label="Количество листьев" options={LEAF_COUNTS} value={art.leafCount} onChange={set('leafCount')} />
             <Choice label="Раскрытие" options={SPREADS} value={art.spread} onChange={set('spread')} />
+          </>
+        )}
+        {tab === 'trunk' && (
+          <>
+            <Choice label="Ствол" options={TRUNKS} value={art.trunk} onChange={set('trunk')} />
+            {art.trunk === 'single' && (
+              <>
+                <Choice label="Высота" options={TRUNK_HEIGHTS} value={art.trunkHeight} onChange={set('trunkHeight')} />
+                <Choice label="Толщина" options={TRUNK_THICK} value={art.trunkThick} onChange={set('trunkThick')} />
+                <Choice label="Форма" options={TRUNK_BENDS} value={art.trunkBend} onChange={set('trunkBend')} />
+                <Choice label="Где растут листья" options={LEAF_PLACES} value={art.leafPlace} onChange={set('leafPlace')} />
+                <Swatches label="Цвет ствола" colors={TRUNK_COLORS} value={art.trunkColor} onChange={set('trunkColor')} />
+              </>
+            )}
           </>
         )}
         {tab === 'pattern' && (
